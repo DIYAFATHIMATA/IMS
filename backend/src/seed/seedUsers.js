@@ -7,31 +7,36 @@ const defaultUsers = [
     name: 'System Admin',
     email: 'admin@ims.com',
     password: 'admin',
-    role: 'admin'
+    role: 'admin',
+    phone: ''
   },
   {
     name: 'Rahul',
     email: 'Rahul@staff.com',
     password: 'staff',
-    role: 'staff'
+    role: 'staff',
+    phone: '9876543211'
   },
   {
     name: 'Priya',
     email: 'Priya@staff.com',
     password: 'staff',
-    role: 'staff'
+    role: 'staff',
+    phone: '9876543212'
   },
   {
     name: 'Hisham',
     email: 'Hisham@supplier.com',
     password: 'supplier',
-    role: 'supplier'
+    role: 'supplier',
+    phone: '9876543213'
   },
   {
     name: 'Rohan',
     email: 'Rohan@supplier.com',
     password: 'supplier',
-    role: 'supplier'
+    role: 'supplier',
+    phone: '9876543214'
   }
 ];
 
@@ -44,6 +49,10 @@ export const seedDefaultUsers = async () => {
   for (const account of defaultUsers) {
     const existingUser = await User.findOne({ email: account.email });
     if (existingUser) {
+      if (existingUser.phone !== (account.phone || '')) {
+        existingUser.phone = account.phone || '';
+        await existingUser.save();
+      }
       continue;
     }
 
@@ -53,7 +62,8 @@ export const seedDefaultUsers = async () => {
       name: account.name,
       email: account.email,
       password: hashedPassword,
-      role: account.role
+      role: account.role,
+      phone: account.phone || ''
     });
   }
 

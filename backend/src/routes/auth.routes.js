@@ -55,7 +55,8 @@ router.post('/register', async (req, res) => {
       name,
       email: normalizedEmail,
       password: hashedPassword,
-      role: normalizedRole
+      role: normalizedRole,
+      phone: String(phone || '').trim()
     });
 
     if (normalizedRole === 'supplier') {
