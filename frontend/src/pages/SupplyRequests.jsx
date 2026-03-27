@@ -66,11 +66,8 @@ export default function SupplyRequests() {
     return {
       pending: count('Pending'),
       approved: count('Approved'),
-      accepted: count('Accepted'),
-      processing: count('Processing'),
-      shipped: count('Shipped'),
       delivered: count('Delivered'),
-      verified: count('Verified')
+      completed: count('Completed') + count('Verified')
     };
   }, [requests]);
 
@@ -78,55 +75,40 @@ export default function SupplyRequests() {
     all: {
       label: 'All',
       value: requests.length,
-      tone: 'border-slate-200 bg-slate-50/70 text-slate-700',
-      activeTone: 'border-slate-400 ring-1 ring-slate-200 bg-white dark:bg-slate-800'
+      tone: 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600',
+      activeTone: 'border-slate-400 ring-2 ring-slate-100 bg-slate-50'
     },
     Pending: {
       label: 'Pending',
       value: summary.pending,
-      tone: 'border-amber-200 bg-amber-50/70 text-amber-700',
-      activeTone: 'border-amber-400 ring-1 ring-amber-200 bg-amber-50/90'
+      tone: 'border-slate-200 bg-white dark:bg-slate-800 text-amber-600',
+      activeTone: 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/30'
     },
     Approved: {
       label: 'Approved',
       value: summary.approved,
-      tone: 'border-blue-200 bg-blue-50/70 text-blue-700',
-      activeTone: 'border-blue-400 ring-1 ring-blue-200 bg-blue-50/90'
-    },
-    Accepted: {
-      label: 'Accepted',
-      value: summary.accepted,
-      tone: 'border-cyan-200 bg-cyan-50/70 text-cyan-700',
-      activeTone: 'border-cyan-400 ring-1 ring-cyan-200 bg-cyan-50/90'
-    },
-    Processing: {
-      label: 'Processing',
-      value: summary.processing,
-      tone: 'border-indigo-200 bg-indigo-50/70 text-indigo-700',
-      activeTone: 'border-indigo-400 ring-1 ring-indigo-200 bg-indigo-50/90'
-    },
-    Shipped: {
-      label: 'Shipped',
-      value: summary.shipped,
-      tone: 'border-violet-200 bg-violet-50/70 text-violet-700',
-      activeTone: 'border-violet-400 ring-1 ring-violet-200 bg-violet-50/90'
+      tone: 'border-slate-200 bg-white dark:bg-slate-800 text-blue-600',
+      activeTone: 'border-blue-400 ring-2 ring-blue-100 bg-blue-50/30'
     },
     Delivered: {
       label: 'Delivered',
       value: summary.delivered,
-      tone: 'border-emerald-200 bg-emerald-50/70 text-emerald-700',
-      activeTone: 'border-emerald-400 ring-1 ring-emerald-200 bg-emerald-50/90'
+      tone: 'border-slate-200 bg-white dark:bg-slate-800 text-emerald-600',
+      activeTone: 'border-emerald-400 ring-2 ring-emerald-100 bg-emerald-50/30'
     },
-    Verified: {
-      label: 'Verified',
-      value: summary.verified,
-      tone: 'border-green-200 bg-green-50/70 text-green-700',
-      activeTone: 'border-green-400 ring-1 ring-green-200 bg-green-50/90'
+    Completed: {
+      label: 'Completed',
+      value: summary.completed || requests.filter(r => r.status === 'Completed' || r.status === 'Verified').length,
+      tone: 'border-slate-200 bg-white dark:bg-slate-800 text-green-600',
+      activeTone: 'border-green-400 ring-2 ring-green-100 bg-green-50/30'
     }
   };
 
   const visibleRequests = useMemo(() => {
     if (activeStatus === 'all') return requests;
+    if (activeStatus === 'Completed') {
+        return requests.filter(r => r.status === 'Completed' || r.status === 'Verified');
+    }
     return requests.filter((request) => request.status === activeStatus);
   }, [requests, activeStatus]);
 
@@ -134,10 +116,10 @@ export default function SupplyRequests() {
   const isSupplier = role === SUPPLIER_ROLE;
   const isAdmin = role === ADMIN_ROLE;
 
-  const workflowStages = ['Pending', 'Approved', 'Processing', 'Shipped', 'Delivered', 'Verified'];
+  const workflowStages = ['Pending', 'Approved', 'Delivered', 'Completed'];
 
   const normalizeWorkflowStatus = (status) => {
-    if (status === 'Accepted') return 'Processing';
+    if (status === 'Verified') return 'Completed';
     return status;
   };
 
@@ -234,13 +216,17 @@ export default function SupplyRequests() {
     }
   };
 
-  const approveRequest = async (id) => {
+  const approveRequest = async (id, decision = 'Approved') => {
     try {
-      await supplyRequestsApi.approve(id, token);
+      if (decision === 'Rejected') {
+        await supplyRequestsApi.respond(id, 'Rejected', token);
+      } else {
+        await supplyRequestsApi.approve(id, token);
+      }
       await fetchData();
-      setNotice({ type: 'success', message: 'Supply request approved for supplier action.' });
+      setNotice({ type: 'success', message: `Supply request ${decision.toLowerCase()}.` });
     } catch (error) {
-      setNotice({ type: 'error', message: error.message || 'Failed to approve request' });
+      setNotice({ type: 'error', message: error.message || `Failed to ${decision.toLowerCase()} request` });
     }
   };
 
@@ -248,43 +234,42 @@ export default function SupplyRequests() {
     const status = request.status;
 
     if (status === 'Pending' && isAdmin) {
-      return {
-        label: 'Approve Request',
-        className: 'bg-blue-600 hover:bg-blue-700 text-white',
-        onClick: () => approveRequest(request._id)
-      };
+      return [
+        {
+          label: 'Approve',
+          icon: <CheckCircle2 className="w-4 h-4" />,
+          className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50',
+          onClick: () => approveRequest(request._id, 'Approved')
+        },
+        {
+          label: 'Reject',
+          icon: <XCircle className="w-4 h-4" />,
+          className: 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200',
+          onClick: () => approveRequest(request._id, 'Rejected')
+        }
+      ];
     }
 
     if (status === 'Approved' && isSupplier) {
-      return {
-        label: 'Send to Supplier',
-        className: 'bg-violet-600 hover:bg-violet-700 text-white',
-        onClick: () => handleSupplierAction(request, 'accept')
-      };
+      return [
+        {
+          label: 'Mark Delivered',
+          icon: <Truck className="w-4 h-4" />,
+          className: 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200/50',
+          onClick: () => navigate(`/supplier/orders/${request._id}`)
+        }
+      ];
     }
 
-    if ((status === 'Accepted' || status === 'Processing') && isSupplier) {
-      return {
-        label: 'Mark as Shipped',
-        className: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-        onClick: () => handleSupplierAction(request, status === 'Accepted' ? 'Processing' : 'Shipped')
-      };
-    }
-
-    if (status === 'Shipped' && isSupplier) {
-      return {
-        label: 'Mark as Delivered',
-        className: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-        onClick: () => navigate(`/supplier/orders/${request._id}`)
-      };
-    }
-
-    if (status === 'Delivered' && canCreate && !request.inventoryUpdated) {
-      return {
-        label: 'Verify Delivery',
-        className: 'bg-amber-600 hover:bg-amber-700 text-white',
-        onClick: () => markReceived(request._id)
-      };
+    if (status === 'Delivered' && canCreate) {
+      return [
+        {
+          label: 'Complete Request',
+          icon: <PackageCheck className="w-4 h-4" />,
+          className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50',
+          onClick: () => markReceived(request._id)
+        }
+      ];
     }
 
     return null;
@@ -310,35 +295,65 @@ export default function SupplyRequests() {
       render: (row) => <StatusBadge status={row.status} />
     },
     {
-      header: 'Progress',
+      header: 'Timeline',
       accessor: 'workflowProgress',
       sortable: false,
       render: (row) => {
         const current = normalizeWorkflowStatus(row.status);
         const activeIndex = workflowStages.indexOf(current);
+        const isRejected = row.status === 'Rejected';
 
         return (
-          <div className="flex items-center gap-1.5">
-            {workflowStages.map((stage, index) => {
-              const isDone = activeIndex >= index && activeIndex !== -1;
-              const isActive = stage === current;
-              return (
-                <span
-                  key={`${row._id}-${stage}`}
-                  title={stage}
-                  className={`h-1.5 w-4 rounded-full transition-colors ${
-                    isActive
-                      ? 'bg-emerald-500'
-                      : isDone
-                        ? 'bg-emerald-300'
-                        : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                />
-              );
-            })}
+          <div className="min-w-[140px]">
+            <div className="flex items-center justify-between mb-1.5 px-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {isRejected ? 'Request Rejected' : `${Math.round(((activeIndex + 1) / workflowStages.length) * 100)}% Complete`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-slate-700/50">
+              {workflowStages.map((stage, index) => {
+                const isDone = activeIndex >= index && activeIndex !== -1;
+                const isActive = stage === current;
+                
+                let colorClass = 'bg-slate-200 dark:bg-slate-700';
+                if (isRejected) {
+                    colorClass = index <= activeIndex ? 'bg-rose-400' : 'bg-slate-200';
+                } else if (isActive) {
+                    colorClass = 'bg-emerald-500 animate-pulse';
+                } else if (isDone) {
+                    colorClass = 'bg-emerald-400';
+                }
+
+                return (
+                  <div
+                    key={`${row._id}-${stage}`}
+                    title={stage}
+                    className={`h-full flex-1 rounded-full transition-all duration-500 ${colorClass}`}
+                  />
+                );
+              })}
+            </div>
           </div>
         );
       }
+    },
+    {
+        header: 'Dates',
+        accessor: 'dates',
+        render: (row) => (
+            <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                    Exp: {row.expectedDeliveryDate ? new Date(row.expectedDeliveryDate).toLocaleDateString() : 'N/A'}
+                </div>
+                {row.actualDeliveryDate && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Del: {new Date(row.actualDeliveryDate).toLocaleDateString()}
+                    </div>
+                )}
+            </div>
+        )
     },
     {
       header: 'Inventory',
@@ -591,31 +606,32 @@ export default function SupplyRequests() {
               options: [
                 { label: 'Pending', value: 'Pending' },
                 { label: 'Approved', value: 'Approved' },
-                { label: 'Accepted', value: 'Accepted' },
-                { label: 'Processing', value: 'Processing' },
-                { label: 'Shipped', value: 'Shipped' },
                 { label: 'Delivered', value: 'Delivered' },
-                { label: 'Verified', value: 'Verified' },
+                { label: 'Completed', value: 'Completed' },
                 { label: 'Rejected', value: 'Rejected' }
               ]
             }
           ]}
           emptyText={loading ? 'Loading requests...' : activeStatus === 'all' ? 'No supply requests found.' : `No ${activeStatus} requests found.`}
           actions={(request) => {
-            const primaryAction = getPrimaryAction(request);
+            const primaryActions = getPrimaryAction(request);
 
-            if (!primaryAction) {
-              return <span className="text-[11px] text-zinc-400">Completed / No action</span>;
+            if (!primaryActions || primaryActions.length === 0) {
+              return <span className="text-[11px] text-zinc-400">No action</span>;
             }
 
             return (
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={primaryAction.onClick}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold shadow-sm transition-colors ${primaryAction.className}`}
-                >
-                  {primaryAction.label}
-                </button>
+              <div className="flex items-center justify-end gap-2">
+                {primaryActions.map((action, idx) => (
+                  <button
+                    key={idx}
+                    onClick={action.onClick}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all duration-200 active:scale-95 ${action.className}`}
+                  >
+                    {action.icon}
+                    <span>{action.label}</span>
+                  </button>
+                ))}
               </div>
             );
           }}

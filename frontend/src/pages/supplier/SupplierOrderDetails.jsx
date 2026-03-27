@@ -6,7 +6,7 @@ import { ordersApi } from '../../services/api';
 import StatusBadge from '../../components/ui/StatusBadge';
 import NotificationAlert from '../../components/ui/NotificationAlert';
 
-const FLOW = ['Accepted', 'Processing', 'Shipped', 'Delivered'];
+const FLOW = ['Approved', 'Delivered'];
 
 const getNextStatus = (status) => {
   const index = FLOW.indexOf(String(status || ''));
@@ -35,7 +35,7 @@ const timelineTitle = (status) => {
     Processing: 'Order Processing',
     Shipped: 'Order Shipped',
     Delivered: 'Order Delivered',
-    Verified: 'Order Verified',
+    Completed: 'Order Completed',
     Rejected: 'Order Rejected'
   };
   return map[status] || status;
@@ -276,9 +276,9 @@ export default function SupplierOrderDetails() {
                 className="air-input min-h-[92px]"
                 placeholder="Add delivery notes while updating status (optional)"
               />
-              <button onClick={handleUpdateStatus} disabled={updating} className="air-btn-primary w-full">
+              <button onClick={handleUpdateStatus} disabled={updating} className="air-btn-primary w-full bg-blue-600 hover:bg-blue-700">
                 {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
-                Update to {nextStatus}
+                Mark as {nextStatus}
               </button>
             </div>
           )}

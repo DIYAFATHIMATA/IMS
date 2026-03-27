@@ -7,7 +7,7 @@ import Table from '../../components/Table';
 import StatusBadge from '../../components/ui/StatusBadge';
 import NotificationAlert from '../../components/ui/NotificationAlert';
 
-const FLOW = ['Accepted', 'Processing', 'Shipped', 'Delivered'];
+const FLOW = ['Approved', 'Delivered'];
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -62,9 +62,7 @@ export default function SupplierOrders() {
   const statusSummary = useMemo(() => {
     const count = (status) => orders.filter((item) => item.status === status).length;
     return {
-      accepted: count('Accepted'),
-      processing: count('Processing'),
-      shipped: count('Shipped'),
+      approved: count('Approved'),
       delivered: count('Delivered')
     };
   }, [orders]);
@@ -128,16 +126,8 @@ export default function SupplierOrders() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Accepted</p>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{statusSummary.accepted}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Processing</p>
-          <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{statusSummary.processing}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Shipped</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{statusSummary.shipped}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Approved</p>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{statusSummary.approved}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400">Delivered</p>
@@ -154,9 +144,7 @@ export default function SupplierOrders() {
             key: 'status',
             label: 'Status',
             options: [
-              { label: 'Accepted', value: 'Accepted' },
-              { label: 'Processing', value: 'Processing' },
-              { label: 'Shipped', value: 'Shipped' },
+              { label: 'Approved', value: 'Approved' },
               { label: 'Delivered', value: 'Delivered' }
             ]
           }
@@ -172,8 +160,7 @@ export default function SupplierOrders() {
             );
           }
 
-          const choices = [nextStatus];
-          if (nextStatus === 'Delivered') {
+          if (order.status === 'Approved') {
             return (
               <div className="flex items-center justify-end gap-2">
                 <Link to={`/supplier/orders/${order._id}`} className="air-btn-primary px-3 py-2 text-xs">
@@ -188,27 +175,6 @@ export default function SupplierOrders() {
               <Link to={`/supplier/orders/${order._id}`} className="px-3 py-2 text-xs font-semibold rounded-lg border border-zinc-300 text-zinc-700 hover:bg-zinc-50">
                 Details
               </Link>
-              <select
-                value={nextSelection[order._id] || nextStatus}
-                onChange={(e) => setNextSelection((prev) => ({ ...prev, [order._id]: e.target.value }))}
-                className="air-input py-2 min-w-[140px]"
-                disabled={updatingId === order._id}
-              >
-                {choices.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => handleStatusUpdate(order)}
-                disabled={updatingId === order._id}
-                className="air-btn-primary px-3 py-2"
-                title={`Move to ${nextStatus}`}
-              >
-                {updatingId === order._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
-                Update
-              </button>
             </div>
           );
         }}

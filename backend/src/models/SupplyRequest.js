@@ -14,16 +14,18 @@ const supplyRequestSchema = new mongoose.Schema(
     deliveryAddress: { type: String, trim: true, default: '' },
     status: {
       type: String,
-      enum: ['Pending', 'Approved', 'Accepted', 'Processing', 'Rejected', 'Shipped', 'Delivered', 'Verified'],
+      enum: ['Pending', 'Approved', 'Delivered', 'Completed', 'Rejected'],
       default: 'Pending'
     },
     requestDate: { type: Date, default: Date.now },
     expectedDeliveryDate: { type: Date },
+    actualDeliveryDate: { type: Date },
+    deliveryNotes: { type: String, trim: true, default: '' },
     statusHistory: [
       {
         status: {
           type: String,
-          enum: ['Pending', 'Approved', 'Accepted', 'Processing', 'Rejected', 'Shipped', 'Delivered', 'Verified'],
+          enum: ['Pending', 'Approved', 'Delivered', 'Completed', 'Rejected'],
           required: true
         },
         updatedAt: { type: Date, default: Date.now },

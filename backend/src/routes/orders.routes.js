@@ -8,7 +8,7 @@ const router = Router();
 
 router.use(requireAuth, requireRoles(ROLE_SUPPLIER));
 
-const DELIVERY_FLOW = ['Accepted', 'Processing', 'Shipped', 'Delivered'];
+const DELIVERY_FLOW = ['Approved', 'Delivered'];
 const PROOF_TYPES = new Set(['invoice', 'challan', 'photo']);
 const MAX_PROOF_SIZE_CHARS = 4_000_000;
 
@@ -50,7 +50,7 @@ router.get('/supplier', async (req, res) => {
 
     const query = {
       supplierId,
-      status: { $in: DELIVERY_FLOW }
+      status: { $in: ['Approved', 'Delivered', 'Completed', 'Rejected'] }
     };
 
     if (status !== 'all' && DELIVERY_FLOW.includes(String(status))) {
@@ -134,24 +134,7 @@ router.put('/update-status/:orderId', async (req, res) => {
 
     const now = new Date();
     order.status = targetStatus;
-    if (!Array.isArray(order.statusHistory)) {
-      order.statusHistory = [];
-    }
 
-    order.statusHistory.push({
-      status: targetStatus,
-      updatedAt: now,
-      updatedBy: req.auth.sub,
-      updatedByName: req.auth.name || req.auth.email || 'Supplier',
-      notes: deliveryNotes || 'Updated from supplier delivery panel'
-    });
-
-    if (targetStatus === 'Processing' && !order.acceptedAt) {
-      order.acceptedAt = now;
-    }
-    if (targetStatus === 'Shipped') {
-      order.shippedAt = now;
-    }
     if (targetStatus === 'Delivered') {
       if (deliveryProofs.length === 0) {
         return res.status(400).json({ success: false, message: 'Upload delivery proof files before marking Delivered' });
@@ -161,7 +144,10 @@ router.put('/update-status/:orderId', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Delivery Challan is required to mark Delivered' });
       }
       order.deliveredAt = now;
+      order.actualDeliveryDate = now;
+      order.deliveryNotes = deliveryNotes;
       order.deliveryProofs = deliveryProofs;
+
       await createNotification({
         role: 'staff',
         type: 'info',
@@ -170,6 +156,17 @@ router.put('/update-status/:orderId', async (req, res) => {
         metadata: { requestId: order.requestId, orderId: order._id }
       });
     }
+
+    if (!Array.isArray(order.statusHistory)) {
+      order.statusHistory = [];
+    }
+    order.statusHistory.push({
+      status: targetStatus,
+      updatedAt: now,
+      updatedBy: req.auth.sub,
+      updatedByName: req.auth.name || req.auth.email || 'Supplier',
+      notes: deliveryNotes || 'Updated from supplier delivery panel'
+    });
 
     await order.save();
 

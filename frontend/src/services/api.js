@@ -338,10 +338,11 @@ export const supplyRequestsApi = {
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(payload)
     }),
-  approve: (id, token) =>
+  approve: (id, payload, token) =>
     apiRequest(`/supply-requests/${id}/approve`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload || { status: 'Approved' })
     }),
   respond: (id, decision, token) =>
     apiRequest(`/supply-requests/${id}/respond`, {

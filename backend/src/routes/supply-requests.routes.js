@@ -243,16 +243,21 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
 
 router.patch('/:id/approve', requireRoles(ROLE_ADMIN), async (req, res) => {
   try {
+    const { status = 'Approved' } = req.body;
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status. Must be Approved or Rejected' });
+    }
+
     const request = await SupplyRequest.findById(req.params.id);
     if (!request) {
       return res.status(404).json({ success: false, message: 'Supply request not found' });
     }
 
     if (request.status !== 'Pending') {
-      return res.status(400).json({ success: false, message: 'Only Pending requests can be approved' });
+      return res.status(400).json({ success: false, message: 'Only Pending requests can be processed' });
     }
 
-    request.status = 'Approved';
+    request.status = status;
     request.approvedBy = req.auth.sub;
     request.approvedByName = req.auth.name || req.auth.email || 'Admin';
     request.approvedAt = new Date();
@@ -260,17 +265,17 @@ router.patch('/:id/approve', requireRoles(ROLE_ADMIN), async (req, res) => {
       request.statusHistory = [];
     }
     request.statusHistory.push({
-      status: 'Approved',
+      status,
       updatedAt: request.approvedAt,
       updatedBy: req.auth.sub,
       updatedByName: req.auth.name || req.auth.email || 'Admin',
-      notes: 'Request approved'
+      notes: status === 'Approved' ? 'Request approved' : 'Request rejected by admin'
     });
     await request.save();
 
     await logActivity({
-      action: 'SUPPLY_REQUEST_APPROVED',
-      details: `${request.requestId} approved by admin`,
+      action: status === 'Approved' ? 'SUPPLY_REQUEST_APPROVED' : 'SUPPLY_REQUEST_REJECTED',
+      details: `${request.requestId} ${status.toLowerCase()} by admin`,
       actor: req.auth,
       metadata: { requestId: request.requestId }
     });
@@ -365,14 +370,11 @@ router.patch('/:id/status', requireRoles(ROLE_SUPPLIER), async (req, res) => {
     }
 
     const allowedTransitions = {
-      Pending: [],
-      Approved: ['Accepted'],
-      Accepted: ['Processing'],
-      Processing: ['Shipped'],
-      Shipped: ['Delivered'],
-      Delivered: [],
+      Pending: ['Approved', 'Rejected'],
+      Approved: ['Delivered', 'Rejected'],
+      Delivered: ['Completed'],
       Rejected: [],
-      Verified: []
+      Completed: []
     };
 
     const current = request.status;
@@ -381,24 +383,15 @@ router.patch('/:id/status', requireRoles(ROLE_SUPPLIER), async (req, res) => {
     }
 
     request.status = status;
-    request.supplierId = req.auth.sub;
-    request.supplierName = req.auth.name || req.auth.email || 'Supplier';
-    if (status === 'Accepted' && !request.acceptedAt) {
-      request.acceptedAt = new Date();
-    }
-    if (status === 'Shipped') {
-      request.shippedAt = new Date();
-    }
     if (status === 'Delivered') {
-      if (deliveryProofs.length === 0) {
-        return res.status(400).json({ success: false, message: 'Upload delivery proof files before marking Delivered' });
-      }
-      const hasChallan = deliveryProofs.some((item) => item.type === 'challan');
-      if (!hasChallan) {
-        return res.status(400).json({ success: false, message: 'Delivery Challan is required to mark Delivered' });
-      }
       request.deliveredAt = new Date();
-      request.deliveryProofs = deliveryProofs;
+      request.actualDeliveryDate = new Date();
+      request.deliveryNotes = String(req.body.deliveryNotes || '').trim();
+    }
+    if (status === 'Completed') {
+      request.inventoryUpdated = true;
+      request.inventoryUpdatedAt = new Date();
+      request.verifiedAt = new Date();
     }
     if (!Array.isArray(request.statusHistory)) {
       request.statusHistory = [];
@@ -511,28 +504,28 @@ router.patch('/:id/receive', requireRoles(ROLE_STAFF), async (req, res) => {
       notes: 'Supply request received'
     });
 
-    const verifiedAt = new Date();
+    const completedAt = new Date();
     request.inventoryUpdated = true;
-    request.inventoryUpdatedAt = verifiedAt;
-    request.status = 'Verified';
+    request.inventoryUpdatedAt = completedAt;
+    request.status = 'Completed';
     request.verifiedBy = req.auth.sub;
     request.verifiedByName = req.auth.name || req.auth.email || 'Staff';
-    request.verifiedAt = verifiedAt;
+    request.verifiedAt = completedAt;
     if (!Array.isArray(request.statusHistory)) {
       request.statusHistory = [];
     }
     request.statusHistory.push({
-      status: 'Verified',
-      updatedAt: verifiedAt,
+      status: 'Completed',
+      updatedAt: completedAt,
       updatedBy: req.auth.sub,
       updatedByName: req.auth.name || req.auth.email || 'Staff',
-      notes: 'Delivery verified by staff and inventory updated'
+      notes: 'Delivery received by staff and inventory updated'
     });
     await request.save();
 
     await logActivity({
-      action: 'SUPPLY_REQUEST_VERIFIED',
-      details: `${request.requestId} verified by staff and inventory updated`,
+      action: 'SUPPLY_REQUEST_COMPLETED',
+      details: `${request.requestId} marking as completed by staff`,
       actor: req.auth,
       metadata: { requestId: request.requestId, productId: request.productId }
     });
@@ -565,7 +558,7 @@ router.patch('/:id/verify', requireRoles(ROLE_ADMIN), async (req, res) => {
       return res.status(400).json({ success: false, message: 'Request must be delivered and received before verification' });
     }
 
-    request.status = 'Verified';
+    request.status = 'Completed';
     request.verifiedBy = req.auth.sub;
     request.verifiedByName = req.auth.name || req.auth.email || 'Admin';
     request.verifiedAt = new Date();
@@ -573,11 +566,11 @@ router.patch('/:id/verify', requireRoles(ROLE_ADMIN), async (req, res) => {
       request.statusHistory = [];
     }
     request.statusHistory.push({
-      status: 'Verified',
+      status: 'Completed',
       updatedAt: request.verifiedAt,
       updatedBy: req.auth.sub,
       updatedByName: req.auth.name || req.auth.email || 'Admin',
-      notes: 'Request verified'
+      notes: 'Request completed by admin'
     });
     await request.save();
 
