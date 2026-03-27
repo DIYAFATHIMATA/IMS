@@ -110,12 +110,15 @@ export const authApi = {
 };
 
 export const inventoryApi = {
-  getItems: (token) =>
-    apiRequest('/inventory/items', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }),
+  getItems: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/inventory/items${qs ? `?${qs}` : ''}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
   createItem: (payload, token) =>
     apiRequest('/inventory/items', {
       method: 'POST',
@@ -230,10 +233,15 @@ export const billsApi = {
 };
 
 export const invoicesApi = {
-  getAll: (token) =>
-    apiRequest('/invoices', {
+  getAll: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/invoices${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` }
-    }),
+    });
+  },
   create: (payload, token) =>
     apiRequest('/invoices', {
       method: 'POST',
@@ -309,18 +317,33 @@ export const reportsApi = {
     apiRequest('/reports/summary', {
       headers: { Authorization: `Bearer ${token}` }
     }),
-  getInventory: (token) =>
-    apiRequest('/reports/inventory', {
+  getInventory: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/reports/inventory${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` }
-    }),
-  getSales: (token) =>
-    apiRequest('/reports/sales', {
+    });
+  },
+  getSales: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/reports/sales${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` }
-    }),
-  getPurchases: (token) =>
-    apiRequest('/reports/purchases', {
+    });
+  },
+  getPurchases: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/reports/purchases${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` }
-    }),
+    });
+  },
   getSupplierPerformance: (token) =>
     apiRequest('/reports/supplier-performance', {
       headers: { Authorization: `Bearer ${token}` }
@@ -328,10 +351,15 @@ export const reportsApi = {
 };
 
 export const supplyRequestsApi = {
-  getAll: (token) =>
-    apiRequest('/supply-requests', {
+  getAll: (token, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', params.limit);
+    if (params.skip) query.set('skip', params.skip);
+    const qs = query.toString();
+    return apiRequest(`/supply-requests${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${token}` }
-    }),
+    });
+  },
   create: (payload, token) =>
     apiRequest('/supply-requests', {
       method: 'POST',

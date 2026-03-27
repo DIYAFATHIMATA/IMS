@@ -15,15 +15,26 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/items', requireRoles(ROLE_ADMIN, ROLE_STAFF), async (_req, res) => {
+router.get('/items', requireRoles(ROLE_ADMIN, ROLE_STAFF), async (req, res) => {
   try {
-    const items = await Product.find({}).sort({ createdAt: -1 }).lean();
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 1000);
+    const skip = Math.max(Number(req.query.skip || 0), 0);
+
+    const items = await Product.find({})
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     const withFlags = items.map((item) => ({
       ...item,
       minStockLevel: Number(item.minStockLevel ?? 5),
       isLowStock: Number(item.stock) < Number(item.minStockLevel ?? 5)
     }));
-    return res.status(200).json({ success: true, data: withFlags });
+    return res.status(200).json({
+      success: true,
+      data: withFlags,
+      pagination: { limit, skip, count: withFlags.length }
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

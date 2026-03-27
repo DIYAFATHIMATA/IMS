@@ -5,11 +5,11 @@ import Product from '../models/Product.js';
 import Customer from '../models/Customer.js';
 import SupplyRequest from '../models/SupplyRequest.js';
 import User from '../models/User.js';
-import { requireAuth, requireRoles, ROLE_ADMIN } from '../middleware/auth.middleware.js';
+import { requireAuth, requireRoles, ROLE_ADMIN, ROLE_STAFF } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-router.use(requireAuth, requireRoles(ROLE_ADMIN));
+router.use(requireAuth, requireRoles(ROLE_ADMIN, ROLE_STAFF));
 
 const formatMonthKey = (date) => {
   const year = date.getUTCFullYear();
@@ -167,37 +167,61 @@ router.get('/summary', async (_req, res) => {
   }
 });
 
-router.get('/inventory', async (_req, res) => {
+router.get('/inventory', async (req, res) => {
   try {
-    const products = await Product.find({}).sort({ name: 1 }).lean();
-    return res.json({ success: true, data: products });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.get('/sales', async (_req, res) => {
-  try {
-    const invoices = await Invoice.find({}).sort({ date: -1 }).lean();
-    const totalRevenue = invoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
+    const skip = Math.max(Number(req.query.skip || 0), 0);
+    const products = await Product.find({})
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     return res.json({
       success: true,
-      data: invoices,
-      summary: { totalSales: invoices.length, totalRevenue }
+      data: products,
+      pagination: { limit, skip, count: products.length }
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-router.get('/purchases', async (_req, res) => {
+router.get('/sales', async (req, res) => {
   try {
-    const orders = await PurchaseOrder.find({}).sort({ date: -1 }).lean();
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
+    const skip = Math.max(Number(req.query.skip || 0), 0);
+    const invoices = await Invoice.find({})
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    const totalRevenue = invoices.reduce((sum, inv) => sum + Number(inv.total || 0), 0);
+    return res.json({
+      success: true,
+      data: invoices,
+      summary: { totalSales: invoices.length, totalRevenue },
+      pagination: { limit, skip, count: invoices.length }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/purchases', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
+    const skip = Math.max(Number(req.query.skip || 0), 0);
+    const orders = await PurchaseOrder.find({})
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     const totalCost = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
     return res.json({
       success: true,
       data: orders,
-      summary: { totalPurchases: orders.length, totalCost }
+      summary: { totalPurchases: orders.length, totalCost },
+      pagination: { limit, skip, count: orders.length }
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

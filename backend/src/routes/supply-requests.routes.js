@@ -61,7 +61,14 @@ router.get('/', requireRoles(ROLE_ADMIN, ROLE_STAFF, ROLE_SUPPLIER), async (req,
       };
     }
 
-    const requests = await SupplyRequest.find(query).sort({ createdAt: -1 }).lean();
+    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
+    const skip = Math.max(Number(req.query.skip || 0), 0);
+
+    const requests = await SupplyRequest.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     const supplierUserIds = requests
       .map((request) => request.supplierId)
       .filter(Boolean);
@@ -93,7 +100,15 @@ router.get('/', requireRoles(ROLE_ADMIN, ROLE_STAFF, ROLE_SUPPLIER), async (req,
       };
     });
 
-    return res.status(200).json({ success: true, data: merged });
+    return res.status(200).json({
+      success: true,
+      data: merged,
+      pagination: {
+        limit,
+        skip,
+        count: merged.length
+      }
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

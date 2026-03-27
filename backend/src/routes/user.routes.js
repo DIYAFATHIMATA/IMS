@@ -16,14 +16,17 @@ const normalizeSupplierCategory = (value) => {
   return SUPPLIER_CATEGORIES.includes(category) ? category : null;
 };
 
-const toUserWithSupplier = (user, supplier) => ({
-  ...toSafeUser(user),
-  phone: supplier?.phone || '',
-  companyName: supplier?.companyName || '',
-  businessAddress: supplier?.businessAddress || '',
-  supplierCategory: supplier?.supplierCategory || '',
-  gstNumber: supplier?.gstNumber || ''
-});
+const toUserWithSupplier = (user, supplier) => {
+  const safe = toSafeUser(user);
+  return {
+    ...safe,
+    phone: supplier?.phone || safe.phone || '',
+    companyName: supplier?.companyName || '',
+    businessAddress: supplier?.businessAddress || '',
+    supplierCategory: supplier?.supplierCategory || '',
+    gstNumber: supplier?.gstNumber || ''
+  };
+};
 
 router.use(requireAuth);
 

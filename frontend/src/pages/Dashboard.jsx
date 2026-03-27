@@ -67,50 +67,32 @@ export default function Dashboard() {
             return;
         }
         try {
-            if (user?.role === ADMIN_ROLE) {
+            if (user?.role === ADMIN_ROLE || user?.role === STAFF_ROLE) {
                 const [summaryRes, txRes, itemsRes] = await Promise.all([
                     reportsApi.getSummary(token),
                     inventoryApi.getStockTransactions(token, 8),
-                    inventoryApi.getItems(token)
+                    inventoryApi.getItems(token, { limit: 50 })
                 ]);
-                setSummary(summaryRes.data || {});
-                setRecentTx(txRes.data || []);
-                setLowItems((itemsRes.data || []).filter((i) => Number(i.stock) < 5));
-            } else if (user?.role === STAFF_ROLE) {
-                const [itemsRes, txRes, invoicesRes, customersRes, requestsRes] = await Promise.all([
-                    inventoryApi.getItems(token),
-                    inventoryApi.getStockTransactions(token, 8),
-                    invoicesApi.getAll(token),
-                    customersApi.getAll(token),
-                    supplyRequestsApi.getAll(token)
-                ]);
-
-                const invoices = invoicesRes.data || [];
-                const requests = requestsRes.data || [];
-                const pendingSupplyRequests = requests.filter((r) => !['Verified', 'Rejected'].includes(String(r.status || ''))).length;
-                const completedDeliveries = requests.filter((r) => String(r.status || '') === 'Verified').length;
-
+                
+                const s = summaryRes.data || {};
                 setSummary({
-                    invoiceCount: invoices.length,
-                    productsCount: (itemsRes.data || []).length,
-                    customersCount: (customersRes.data || []).length,
-                    lowStockCount: (itemsRes.data || []).filter((i) => Number(i.stock) < 5).length,
-                    pendingSupplyRequests,
-                    completedDeliveries,
-                    monthlySalesTrend: []
+                    ...s,
+                    // Map legacy property names if they differ
+                    pendingSupplyRequests: s.pendingSupplyRequests || 0,
+                    completedDeliveries: s.verifiedSupplyRequests || s.completedDeliveries || 0,
                 });
+                
                 setRecentTx(txRes.data || []);
                 setLowItems((itemsRes.data || []).filter((i) => Number(i.stock) < 5));
             } else if (user?.role === SUPPLIER_ROLE) {
-                const requestsRes = await supplyRequestsApi.getAll(token);
+                const requestsRes = await supplyRequestsApi.getAll(token, { limit: 20 });
                 const requests = requestsRes.data || [];
                 setSupplierRequests(requests);
                 setSummary({
                     pendingRequests: requests.filter((r) => r.status === 'Pending').length,
-                    acceptedRequests: requests.filter((r) => r.status === 'Accepted').length,
-                    shippedRequests: requests.filter((r) => r.status === 'Shipped').length,
+                    approvedRequests: requests.filter((r) => r.status === 'Approved').length,
                     deliveredRequests: requests.filter((r) => r.status === 'Delivered').length,
-                    verifiedRequests: requests.filter((r) => r.status === 'Verified').length
+                    verifiedRequests: requests.filter((r) => r.status === 'Completed').length
                 });
                 setRecentTx([]);
                 setLowItems([]);
@@ -118,7 +100,7 @@ export default function Dashboard() {
 
             setLastUpdated(new Date());
         } catch (e) {
-            console.error(e);
+            console.error('Dashboard load error:', e);
         } finally {
             setLoading(false);
         }
