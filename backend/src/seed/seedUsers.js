@@ -5,25 +5,40 @@ import Supplier from '../models/Supplier.js';
 const defaultUsers = [
   {
     name: 'System Admin',
-    email: 'admin@demo.com',
+    email: 'admin@ims.com',
     password: 'admin',
     role: 'admin'
   },
   {
-    name: 'Store Staff',
-    email: 'staff@demo.com',
+    name: 'Rahul',
+    email: 'Rahul@staff.com',
     password: 'staff',
     role: 'staff'
   },
   {
-    name: 'Primary Supplier',
-    email: 'supplier@demo.com',
+    name: 'Priya',
+    email: 'Priya@staff.com',
+    password: 'staff',
+    role: 'staff'
+  },
+  {
+    name: 'Hisham',
+    email: 'Hisham@supplier.com',
+    password: 'supplier',
+    role: 'supplier'
+  },
+  {
+    name: 'Rohan',
+    email: 'Rohan@supplier.com',
     password: 'supplier',
     role: 'supplier'
   }
 ];
 
 export const seedDefaultUsers = async () => {
+  const legacyEmails = ['admin@demo.com', 'staff@demo.com', 'supplier@demo.com', 'manager@demo.com'];
+  await User.deleteMany({ email: { $in: legacyEmails } });
+
   await User.updateMany({ role: 'manager' }, { $set: { role: 'staff' } });
 
   for (const account of defaultUsers) {
@@ -42,13 +57,13 @@ export const seedDefaultUsers = async () => {
     });
   }
 
-  const defaultSupplierUser = await User.findOne({ email: 'supplier@demo.com', role: 'supplier' });
-  if (defaultSupplierUser) {
-    const existingProfile = await Supplier.findOne({ userId: defaultSupplierUser._id });
+  const supplierUsers = await User.find({ role: 'supplier' });
+  for (const supplierUser of supplierUsers) {
+    const existingProfile = await Supplier.findOne({ userId: supplierUser._id });
     if (!existingProfile) {
       await Supplier.create({
-        userId: defaultSupplierUser._id,
-        companyName: 'Primary Supplier Co',
+        userId: supplierUser._id,
+        companyName: `${supplierUser.name} Co`,
         phone: '9876543210',
         businessAddress: 'Kochi, Kerala',
         supplierCategory: 'General Goods',

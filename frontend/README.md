@@ -45,9 +45,9 @@ The system comes with mock data and pre-defined users for testing:
 
 | Role | Email | Password |
 | :--- | :--- | :--- |
-| **Super Admin** | `owner@invtrack.com` | `admin` |
-| **Company Admin** | `admin@demo.com` | `password` |
-| **Staff Member** | `staff@demo.com` | `password` |
+| **Super Admin** | `admin@ims.com` | `admin` |
+| **Staff Member** | `Rahul@staff.com` | `staff` |
+| **Supplier** | `Hisham@supplier.com` | `supplier` |
 
 ## 🏗️ Building for Production
 

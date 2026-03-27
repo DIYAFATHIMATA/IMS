@@ -27,11 +27,15 @@ router.post('/register', async (req, res) => {
       supplierCategory,
       gstNumber
     } = req.body;
-    const normalizedRole = String(role || 'staff').toLowerCase().trim();
-    if (!['staff', 'supplier'].includes(normalizedRole)) {
-      return res.status(400).json({ success: false, message: 'role must be staff or supplier' });
+    const normalizedEmail = email.toLowerCase();
+    let normalizedRole = 'staff';
+    if (normalizedEmail.endsWith('@supplier.com')) {
+      normalizedRole = 'supplier';
+    } else if (normalizedEmail.endsWith('@staff.com')) {
+      normalizedRole = 'staff';
+    } else {
+      normalizedRole = 'staff';
     }
-
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -40,9 +44,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const normalizedEmail = email.toLowerCase();
     const existingUser = await User.findOne({ email: normalizedEmail });
-
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'User already exists' });
     }

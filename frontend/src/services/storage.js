@@ -30,9 +30,9 @@ const seedData = () => {
     });
 
     const defaultUsers = [
-        { id: 1, name: 'System Admin', email: 'admin@demo.com', password: 'admin', role: ADMIN_ROLE },
-        { id: 2, name: 'Operations Manager', email: 'manager@demo.com', password: 'manager', role: MANAGER_ROLE },
-        { id: 3, name: 'Store Staff', email: 'staff@demo.com', password: 'staff', role: STAFF_ROLE },
+        { id: 1, name: 'System Admin', email: 'admin@ims.com', password: 'admin', role: ADMIN_ROLE },
+        { id: 2, name: 'Operations Manager', email: 'Priya@staff.com', password: 'staff', role: MANAGER_ROLE },
+        { id: 3, name: 'Store Staff', email: 'Rahul@staff.com', password: 'staff', role: STAFF_ROLE },
     ];
 
     defaultUsers.forEach(defUser => {

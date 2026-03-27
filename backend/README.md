@@ -38,6 +38,8 @@ npm run dev
 - `POST /api/users` - create user in MongoDB
 
 Default seeded users:
-- `admin@demo.com / admin`
-- `manager@demo.com / manager`
-- `staff@demo.com / staff`
+- `admin@ims.com / admin`
+- `Rahul@staff.com / staff`
+- `Priya@staff.com / staff`
+- `Hisham@supplier.com / supplier`
+- `Rohan@supplier.com / supplier`
