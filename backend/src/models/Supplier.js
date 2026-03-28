@@ -2,10 +2,13 @@ import mongoose from 'mongoose';
 
 const SUPPLIER_CATEGORIES = [
   'Electronics',
-  'Office Supplies',
+  'Groceries',
   'Furniture',
   'Stationery',
-  'General Goods'
+  'Clothing',
+  'Accessories',
+  'Hardware',
+  'Appliances'
 ];
 
 const supplierSchema = new mongoose.Schema(
@@ -23,7 +26,7 @@ const supplierSchema = new mongoose.Schema(
     supplierCategory: {
       type: String,
       enum: SUPPLIER_CATEGORIES,
-      default: 'General Goods',
+      default: 'Stationery',
       required: true
     },
     gstNumber: { type: String, trim: true, default: '' }
