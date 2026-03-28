@@ -3,7 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-const SUPPLIER_CATEGORIES = ['Electronics', 'Office Supplies', 'Furniture', 'Stationery', 'General Goods'];
+const SUPPLIER_CATEGORIES = [
+  'Electronics',
+  'Groceries',
+  'Furniture',
+  'Stationery',
+  'Clothing',
+  'Accessories',
+  'Hardware',
+  'Appliances'
+];
 
 export default function Register() {
     const [formData, setFormData] = useState({
@@ -13,7 +22,7 @@ export default function Register() {
         role: 'staff',
         companyName: '',
         businessAddress: '',
-        supplierCategory: 'General Goods',
+        supplierCategory: 'Electronics',
         gstNumber: '',
         password: '',
         confirmPassword: ''

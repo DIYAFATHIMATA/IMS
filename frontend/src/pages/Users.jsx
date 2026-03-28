@@ -10,7 +10,16 @@ import { FormField, FormInput, FormSelect } from '../components/ui/FormField';
 import NotificationAlert from '../components/ui/NotificationAlert';
 import StatusBadge from '../components/ui/StatusBadge';
 
-const SUPPLIER_CATEGORIES = ['Electronics', 'Office Supplies', 'Furniture', 'Stationery', 'General Goods'];
+const CATEGORIES = [
+  'Electronics',
+  'Groceries',
+  'Furniture',
+  'Stationery',
+  'Clothing',
+  'Accessories',
+  'Hardware',
+  'Appliances'
+];
 
 export default function Users() {
     const { user: currentUser } = useAuth();

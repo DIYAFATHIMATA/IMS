@@ -11,7 +11,7 @@ export default function Suppliers() {
     const [suppliers, setSuppliers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
-    const [formData, setFormData] = useState({ name: '', contact: '', gst: '', email: '', address: '', supplierCategory: 'General Goods' });
+    const [formData, setFormData] = useState({ name: '', contact: '', gst: '', email: '', address: '', supplierCategory: 'Stationery' });
     const [notice, setNotice] = useState(null);
 
     useEffect(() => {
@@ -38,7 +38,7 @@ export default function Suppliers() {
             setFormData(supplier);
         } else {
             setEditingSupplier(null);
-            setFormData({ name: '', contact: '', gst: '', email: '', address: '', supplierCategory: 'General Goods' });
+            setFormData({ name: '', contact: '', gst: '', email: '', address: '', supplierCategory: 'Stationery' });
         }
         setIsModalOpen(true);
     };
@@ -89,7 +89,7 @@ export default function Suppliers() {
             header: 'Supplier Name', accessor: 'name', render: (row) => (
                 <div>
                     <div className="font-medium text-gray-900 dark:text-white">{row.name}</div>
-                    <div className="text-xs text-gray-500">{row.supplierCategory || 'General Goods'} | {row.gst}</div>
+                    <div className="text-xs text-gray-500">{row.supplierCategory || 'Stationery'} | {row.gst}</div>
                 </div>
             )
         },
@@ -189,14 +189,21 @@ export default function Suppliers() {
                         <select
                             className="air-input"
                             required
-                            value={formData.supplierCategory || 'General Goods'}
+                            value={formData.supplierCategory || 'Stationery'}
                             onChange={e => setFormData({ ...formData, supplierCategory: e.target.value })}
                         >
-                            <option value="Electronics">Electronics</option>
-                            <option value="Office Supplies">Office Supplies</option>
-                            <option value="Furniture">Furniture</option>
-                            <option value="Stationery">Stationery</option>
-                            <option value="General Goods">General Goods</option>
+                            {[
+                                'Electronics',
+                                'Groceries',
+                                'Furniture',
+                                'Stationery',
+                                'Clothing',
+                                'Accessories',
+                                'Hardware',
+                                'Appliances'
+                            ].map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
                         </select>
                     </FormField>
                     <button className="w-full py-2 bg-emerald-600 text-white rounded-lg">Save Supplier</button>

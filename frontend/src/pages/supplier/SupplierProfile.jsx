@@ -18,7 +18,16 @@ const initialProfile = {
   createdAt: ''
 };
 
-const SUPPLIER_CATEGORIES = ['Electronics', 'Office Supplies', 'Furniture', 'Stationery', 'General Goods'];
+const CATEGORIES = [
+  'Electronics',
+  'Groceries',
+  'Furniture',
+  'Stationery',
+  'Clothing',
+  'Accessories',
+  'Hardware',
+  'Appliances'
+];
 
 export default function SupplierProfile() {
   const token = authStorage.getToken();
