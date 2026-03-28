@@ -44,6 +44,8 @@ const supplyRequestSchema = new mongoose.Schema(
     approvedAt: { type: Date },
     acceptedAt: { type: Date },
     shippedAt: { type: Date },
+    deliveredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    deliveredByName: { type: String, trim: true, default: '' },
     deliveredAt: { type: Date },
     deliveryProofs: {
       type: [

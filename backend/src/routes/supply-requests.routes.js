@@ -19,28 +19,6 @@ const PROOF_TYPES = new Set(['invoice', 'challan', 'photo']);
 const MAX_PROOF_SIZE_CHARS = 4_000_000;
 const GST_OPTIONS = [0, 5, 12, 18, 28];
 
-const normalizeDeliveryProofs = (proofs) => {
-  if (!Array.isArray(proofs)) return [];
-
-  return proofs
-    .map((item) => {
-      const type = String(item?.type || '').trim().toLowerCase();
-      const fileName = String(item?.fileName || '').trim();
-      const mimeType = String(item?.mimeType || '').trim();
-      const dataUrl = String(item?.dataUrl || '').trim();
-      if (!PROOF_TYPES.has(type)) return null;
-      if (!fileName || !mimeType || !dataUrl.startsWith('data:')) return null;
-      if (dataUrl.length > MAX_PROOF_SIZE_CHARS) return null;
-      return {
-        type,
-        fileName,
-        mimeType,
-        dataUrl,
-        uploadedAt: new Date()
-      };
-    })
-    .filter(Boolean);
-};
 
 router.use(requireAuth);
 
@@ -116,16 +94,11 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
       quantity,
       notes,
       expectedDeliveryDate,
-      deliveryAddress,
-      companyName,
-      newProductName,
-      newProductCategory,
-      unitCost,
-      gst
+      deliveryAddress
     } = req.body;
 
-    if (!quantity) {
-      return res.status(400).json({ success: false, message: 'quantity is required' });
+    if (!productId || !quantity) {
+      return res.status(400).json({ success: false, message: 'productId and quantity are required' });
     }
 
     const qty = Number(quantity);
@@ -133,65 +106,28 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
       return res.status(400).json({ success: false, message: 'quantity must be a positive whole number' });
     }
 
-    const isCustomProduct = !productId;
-    let product = null;
-    let resolvedProductName = '';
-    let resolvedProductCategory = '';
-    let resolvedUnitCost = 0;
-    let resolvedGst = 0;
-
-    if (isCustomProduct) {
-      resolvedProductName = String(newProductName || '').trim();
-      resolvedProductCategory = String(newProductCategory || '').trim();
-      resolvedUnitCost = Number(unitCost || 0);
-      resolvedGst = Number(gst ?? 18);
-
-      if (!resolvedProductName || !resolvedProductCategory) {
-        return res.status(400).json({ success: false, message: 'newProductName and newProductCategory are required for new product request' });
-      }
-      if (!Number.isFinite(resolvedUnitCost) || resolvedUnitCost < 0) {
-        return res.status(400).json({ success: false, message: 'unitCost must be a non-negative number' });
-      }
-      if (!GST_OPTIONS.includes(resolvedGst)) {
-        return res.status(400).json({ success: false, message: 'gst must be one of 0, 5, 12, 18, 28' });
-      }
-    } else {
-      product = await Product.findById(productId);
-      if (!product) {
-        return res.status(404).json({ success: false, message: 'Product not found' });
-      }
-      resolvedProductName = product.name;
-      resolvedProductCategory = product.category;
-      resolvedUnitCost = Number(product.costPrice || 0);
-      resolvedGst = Number(product.gst || 0);
+    // Populate supplierId to get the Supplier record
+    const product = await Product.findById(productId).populate('supplierId');
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    let selectedSupplier = null;
-    if (companyName) {
-      const companySuppliers = await Supplier.find({ companyName: String(companyName).trim() }).lean();
-      if (companySuppliers.length === 0) {
-        return res.status(404).json({ success: false, message: `No suppliers found for company: ${companyName}` });
-      }
-
-      // Automatically assign the first supplier from the company
-      selectedSupplier = companySuppliers[0];
-
-      if (!selectedSupplier.userId) {
-        return res.status(400).json({ success: false, message: 'Assigned supplier is not linked to a user account' });
-      }
+    if (!product.supplierId || !product.supplierId.userId) {
+      return res.status(400).json({ success: false, message: 'This product is not linked to an active supplier' });
     }
 
+    const supplierRecord = product.supplierId;
     const requestId = `SR-${Date.now().toString().slice(-8)}`;
-    const totalCost = resolvedUnitCost * qty * (1 + resolvedGst / 100);
+    const totalCost = product.costPrice * qty * (1 + (product.gst / 100));
 
     const created = await SupplyRequest.create({
       requestId,
-      productId: product?._id || null,
-      productName: resolvedProductName,
-      productCategory: resolvedProductCategory,
+      productId: product._id,
+      productName: product.name,
+      productCategory: product.category,
       quantity: qty,
-      unitCost: resolvedUnitCost,
-      gst: resolvedGst,
+      unitCost: product.costPrice,
+      gst: product.gst,
       totalCost,
       notes: String(notes || '').trim(),
       deliveryAddress: String(deliveryAddress || '').trim(),
@@ -207,10 +143,11 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
           notes: 'Request created'
         }
       ],
+      staffId: req.auth.sub,
       staffName: req.auth.name || req.auth.email || 'Staff',
-      companyName: String(companyName || '').trim(),
-      supplierId: selectedSupplier?.userId || null,
-      supplierName: selectedSupplier?.companyName || ''
+      companyName: product.companyName || supplierRecord.companyName,
+      supplierId: supplierRecord.userId,
+      supplierName: supplierRecord.companyName
     });
 
     await logActivity({
@@ -223,21 +160,10 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
     await createNotification({
       role: 'admin',
       type: 'info',
-      title: 'Supply request pending approval',
-      message: `${created.requestId} created by staff`,
+      title: 'New supply request',
+      message: `${created.requestId} created by staff and requires approval`,
       metadata: { requestId: created.requestId }
     });
-
-    if (selectedSupplier?.userId) {
-      await createNotification({
-        role: 'supplier',
-        userId: selectedSupplier.userId,
-        type: 'info',
-        title: 'Supply request assigned',
-        message: `${created.requestId} assigned to your company`,
-        metadata: { requestId: created.requestId, orderId: created._id }
-      });
-    }
 
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -309,59 +235,12 @@ router.patch('/:id/approve', requireRoles(ROLE_ADMIN), async (req, res) => {
   }
 });
 
-router.patch('/:id/respond', requireRoles(ROLE_SUPPLIER), async (req, res) => {
-  try {
-    const { decision } = req.body;
-    if (!['Accepted', 'Rejected'].includes(String(decision || ''))) {
-      return res.status(400).json({ success: false, message: 'decision must be Accepted or Rejected' });
-    }
-
-    const request = await SupplyRequest.findById(req.params.id);
-    if (!request) {
-      return res.status(404).json({ success: false, message: 'Supply request not found' });
-    }
-
-    if (!['Approved', 'Accepted'].includes(request.status)) {
-      return res.status(400).json({ success: false, message: `Cannot respond in ${request.status} status` });
-    }
-
-    request.status = decision;
-    request.supplierId = req.auth.sub;
-    request.supplierName = req.auth.name || req.auth.email || 'Supplier';
-    if (decision === 'Accepted') {
-      request.acceptedAt = new Date();
-    }
-    if (!Array.isArray(request.statusHistory)) {
-      request.statusHistory = [];
-    }
-    request.statusHistory.push({
-      status: decision,
-      updatedAt: new Date(),
-      updatedBy: req.auth.sub,
-      updatedByName: req.auth.name || req.auth.email || 'Supplier',
-      notes: 'Supplier response'
-    });
-    await request.save();
-
-    await logActivity({
-      action: 'SUPPLY_REQUEST_RESPONDED',
-      details: `${request.requestId} marked ${request.status}`,
-      actor: req.auth,
-      metadata: { requestId: request.requestId, status: request.status }
-    });
-
-    return res.status(200).json({ success: true, data: request });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 router.patch('/:id/status', requireRoles(ROLE_SUPPLIER), async (req, res) => {
   try {
     const { status } = req.body;
-    const deliveryProofs = normalizeDeliveryProofs(req.body?.deliveryProofs);
-    if (!['Accepted', 'Processing', 'Shipped', 'Delivered'].includes(String(status || ''))) {
-      return res.status(400).json({ success: false, message: 'Invalid status update' });
+    if (status !== 'Delivered') {
+      return res.status(400).json({ success: false, message: 'Suppliers can only mark requests as Delivered' });
     }
 
     const request = await SupplyRequest.findById(req.params.id);
@@ -369,62 +248,48 @@ router.patch('/:id/status', requireRoles(ROLE_SUPPLIER), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Supply request not found' });
     }
 
-    if (String(request.supplierId || '') && String(request.supplierId) !== String(req.auth.sub)) {
+    if (String(request.supplierId) !== String(req.auth.sub)) {
       return res.status(403).json({ success: false, message: 'This request is assigned to another supplier' });
     }
 
-    const allowedTransitions = {
-      Pending: ['Approved', 'Rejected'],
-      Approved: ['Delivered', 'Rejected'],
-      Delivered: ['Completed'],
-      Rejected: [],
-      Completed: []
-    };
-
-    const current = request.status;
-    if (!allowedTransitions[current]?.includes(status)) {
-      return res.status(400).json({ success: false, message: `Cannot move from ${current} to ${status}` });
+    if (request.status !== 'Approved') {
+      return res.status(400).json({ success: false, message: 'Only Approved requests can be marked as Delivered' });
     }
 
-    request.status = status;
-    if (status === 'Delivered') {
-      request.deliveredAt = new Date();
-      request.actualDeliveryDate = new Date();
-      request.deliveryNotes = String(req.body.deliveryNotes || '').trim();
-    }
-    if (status === 'Completed') {
-      request.inventoryUpdated = true;
-      request.inventoryUpdatedAt = new Date();
-      request.verifiedAt = new Date();
-    }
+    request.status = 'Delivered';
+    request.deliveredBy = req.auth.sub;
+    request.deliveredByName = req.auth.name || req.auth.email || 'Supplier';
+    request.deliveredAt = new Date();
+    request.actualDeliveryDate = new Date();
+    request.deliveryNotes = String(req.body.deliveryNotes || '').trim();
+
     if (!Array.isArray(request.statusHistory)) {
       request.statusHistory = [];
     }
     request.statusHistory.push({
-      status,
+      status: 'Delivered',
       updatedAt: new Date(),
       updatedBy: req.auth.sub,
-      updatedByName: req.auth.name || req.auth.email || 'Supplier',
-      notes: 'Supplier status update'
+      updatedByName: request.deliveredByName,
+      notes: 'Marked as delivered by supplier'
     });
     await request.save();
 
     await logActivity({
-      action: 'SUPPLY_REQUEST_STATUS_UPDATED',
-      details: `${request.requestId} moved to ${status}`,
+      action: 'SUPPLY_REQUEST_DELIVERED',
+      details: `${request.requestId} marked delivered by supplier`,
       actor: req.auth,
-      metadata: { requestId: request.requestId, status }
+      metadata: { requestId: request.requestId }
     });
 
-    if (status === 'Delivered') {
-      await createNotification({
-        role: 'staff',
-        type: 'info',
-        title: 'Delivery arrived',
-        message: `${request.requestId} marked delivered by supplier`,
-        metadata: { requestId: request.requestId }
-      });
-    }
+    await createNotification({
+      role: 'staff',
+      userId: request.staffId,
+      type: 'info',
+      title: 'Delivery arrived',
+      message: `${request.requestId} marked delivered by supplier`,
+      metadata: { requestId: request.requestId }
+    });
 
     return res.status(200).json({ success: true, data: request });
   } catch (error) {
@@ -551,63 +416,5 @@ router.patch('/:id/receive', requireRoles(ROLE_STAFF), async (req, res) => {
   }
 });
 
-router.patch('/:id/verify', requireRoles(ROLE_ADMIN), async (req, res) => {
-  try {
-    const request = await SupplyRequest.findById(req.params.id);
-    if (!request) {
-      return res.status(404).json({ success: false, message: 'Supply request not found' });
-    }
-
-    if (!request.inventoryUpdated || request.status !== 'Delivered') {
-      return res.status(400).json({ success: false, message: 'Request must be delivered and received before verification' });
-    }
-
-    request.status = 'Completed';
-    request.verifiedBy = req.auth.sub;
-    request.verifiedByName = req.auth.name || req.auth.email || 'Admin';
-    request.verifiedAt = new Date();
-    if (!Array.isArray(request.statusHistory)) {
-      request.statusHistory = [];
-    }
-    request.statusHistory.push({
-      status: 'Completed',
-      updatedAt: request.verifiedAt,
-      updatedBy: req.auth.sub,
-      updatedByName: req.auth.name || req.auth.email || 'Admin',
-      notes: 'Request completed by admin'
-    });
-    await request.save();
-
-    await logActivity({
-      action: 'SUPPLY_REQUEST_VERIFIED',
-      details: `${request.requestId} verified by admin`,
-      actor: req.auth,
-      metadata: { requestId: request.requestId }
-    });
-
-    await createNotification({
-      role: 'staff',
-      type: 'success',
-      title: 'Delivery verified',
-      message: `${request.requestId} verified by admin`,
-      metadata: { requestId: request.requestId }
-    });
-
-    if (request.supplierId) {
-      await createNotification({
-        role: 'supplier',
-        userId: request.supplierId,
-        type: 'success',
-        title: 'Delivery verified by admin',
-        message: `${request.requestId} has been verified by admin`,
-        metadata: { requestId: request.requestId, orderId: request._id }
-      });
-    }
-
-    return res.status(200).json({ success: true, data: request });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 export default router;

@@ -38,6 +38,10 @@ const productSchema = new mongoose.Schema(
       ref: 'Supplier',
       default: null
     },
+    companyName: {
+      type: String,
+      default: ''
+    },
     gst: {
       type: Number,
       required: true,

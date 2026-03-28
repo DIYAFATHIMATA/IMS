@@ -428,30 +428,25 @@ export const suppliersApi = {
 
 export const ordersApi = {
   getSupplierOrders: (token, params = {}) => {
-    const query = new URLSearchParams();
-    if (params.search) query.set('search', params.search);
-    if (params.status) query.set('status', params.status);
-    const qs = query.toString();
-
-    return apiRequest(`/orders/supplier${qs ? `?${qs}` : ''}`, {
+    return apiRequest('/supply-requests', {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
   getById: (orderId, token) =>
-    apiRequest(`/orders/${orderId}`, {
+    apiRequest(`/supply-requests/${orderId}`, {
       headers: { Authorization: `Bearer ${token}` }
     }),
   updateStatus: (orderId, payload, token) =>
-    apiRequest(`/orders/update-status/${orderId}`, {
-      method: 'PUT',
+    apiRequest(`/supply-requests/${orderId}/status`, {
+      method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(payload || {})
     }),
   addDeliveryNote: (orderId, note, token) =>
-    apiRequest(`/orders/${orderId}/delivery-note`, {
+    apiRequest(`/supply-requests/${orderId}/status`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ note })
+      body: JSON.stringify({ status: 'Delivered', deliveryNotes: note })
     })
 };
 

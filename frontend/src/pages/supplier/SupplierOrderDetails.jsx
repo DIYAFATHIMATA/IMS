@@ -8,12 +8,6 @@ import NotificationAlert from '../../components/ui/NotificationAlert';
 
 const FLOW = ['Approved', 'Delivered'];
 
-const getNextStatus = (status) => {
-  const index = FLOW.indexOf(String(status || ''));
-  if (index === -1 || index >= FLOW.length - 1) return null;
-  return FLOW[index + 1];
-};
-
 const formatDateTime = (value) => {
   if (!value) return '-';
   const date = new Date(value);
@@ -88,57 +82,9 @@ export default function SupplierOrderDetails() {
     if (!nextStatus || !order) return;
     setUpdating(true);
     try {
-      const toDataUrl = (file) =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ''));
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsDataURL(file);
-        });
-
-      const deliveryProofs = [];
-      if (nextStatus === 'Delivered') {
-        if (!proofChallan) {
-          setNotice({ type: 'warning', message: 'Delivery Challan is required to mark Delivered.' });
-          setUpdating(false);
-          return;
-        }
-
-        const challanDataUrl = await toDataUrl(proofChallan);
-        deliveryProofs.push({
-          type: 'challan',
-          fileName: proofChallan.name,
-          mimeType: proofChallan.type || 'application/octet-stream',
-          dataUrl: challanDataUrl
-        });
-
-        if (proofInvoice) {
-          const invoiceDataUrl = await toDataUrl(proofInvoice);
-          deliveryProofs.push({
-            type: 'invoice',
-            fileName: proofInvoice.name,
-            mimeType: proofInvoice.type || 'application/octet-stream',
-            dataUrl: invoiceDataUrl
-          });
-        }
-
-        for (const photo of proofPhotos) {
-          const photoDataUrl = await toDataUrl(photo);
-          deliveryProofs.push({
-            type: 'photo',
-            fileName: photo.name,
-            mimeType: photo.type || 'application/octet-stream',
-            dataUrl: photoDataUrl
-          });
-        }
-      }
-
-      await ordersApi.updateStatus(order._id, { status: nextStatus, notes: deliveryNotes, deliveryProofs }, token);
+      await ordersApi.updateStatus(order._id, { status: nextStatus, deliveryNotes }, token);
       await fetchOrder();
-      setProofChallan(null);
-      setProofInvoice(null);
-      setProofPhotos([]);
-      setNotice({ type: 'success', message: `Order moved to ${nextStatus}.` });
+      setNotice({ type: 'success', message: `Order marked as ${nextStatus}.` });
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'Failed to update order status' });
     } finally {
@@ -237,39 +183,6 @@ export default function SupplierOrderDetails() {
               <div className="text-sm text-zinc-600 dark:text-zinc-300">
                 Next status: <span className="font-semibold">{nextStatus}</span>
               </div>
-              {nextStatus === 'Delivered' ? (
-                <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-                  <p className="text-xs font-semibold text-amber-700">Upload delivery proof files before marking Delivered.</p>
-                  <div>
-                    <label className="text-xs font-medium text-zinc-700">Delivery Challan (Required)</label>
-                    <input
-                      type="file"
-                      className="air-input mt-1"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={(e) => setProofChallan(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-zinc-700">Invoice (Optional)</label>
-                    <input
-                      type="file"
-                      className="air-input mt-1"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={(e) => setProofInvoice(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-zinc-700">Delivery Photos (Optional)</label>
-                    <input
-                      type="file"
-                      className="air-input mt-1"
-                      accept=".jpg,.jpeg,.png,.webp"
-                      multiple
-                      onChange={(e) => setProofPhotos(Array.from(e.target.files || []))}
-                    />
-                  </div>
-                </div>
-              ) : null}
               <textarea
                 value={deliveryNotes}
                 onChange={(e) => setDeliveryNotes(e.target.value)}
@@ -319,27 +232,6 @@ export default function SupplierOrderDetails() {
         )}
       </section>
 
-      <section className="bg-white dark:bg-gray-800 border border-zinc-200 dark:border-gray-700 rounded-2xl p-5">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Delivery Proofs</h2>
-        {Array.isArray(order.deliveryProofs) && order.deliveryProofs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {order.deliveryProofs.map((proof, index) => (
-              <a
-                key={`${proof.fileName}-${index}`}
-                href={proof.dataUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-xl border border-zinc-200 dark:border-gray-700 p-3 hover:bg-zinc-50 dark:hover:bg-gray-700/40"
-              >
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white capitalize">{proof.type}</p>
-                <p className="text-xs text-zinc-500 mt-1 truncate">{proof.fileName}</p>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-500">No delivery proof uploaded yet.</p>
-        )}
-      </section>
     </div>
   );
 }

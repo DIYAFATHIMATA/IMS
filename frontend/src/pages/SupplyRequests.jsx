@@ -17,19 +17,15 @@ export default function SupplyRequests() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newRequest, setNewRequest] = useState({
+    category: '',
     productId: '',
-    supplierId: '',
     quantity: '',
     expectedDeliveryDate: '',
-    notes: '',
-    isNewProduct: false,
-    newProductName: '',
-    newProductCategory: '',
-    unitCost: '',
-    gst: 18
+    notes: ''
   });
   const [notice, setNotice] = useState(null);
   const [activeStatus, setActiveStatus] = useState('all');
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const role = user?.role;
   const token = authStorage.getToken();
@@ -125,23 +121,8 @@ export default function SupplyRequests() {
 
   const createRequest = async (e) => {
     e.preventDefault();
-    if (!newRequest.quantity) {
-      setNotice({ type: 'warning', message: 'Enter quantity before creating request.' });
-      return;
-    }
-
-    if (newRequest.isNewProduct) {
-      if (!newRequest.newProductName.trim() || !newRequest.newProductCategory.trim()) {
-        setNotice({ type: 'warning', message: 'Enter new product name and category.' });
-        return;
-      }
-    } else if (!newRequest.productId) {
-      setNotice({ type: 'warning', message: 'Select product before creating request.' });
-      return;
-    }
-
-    if (!newRequest.supplierId) {
-      setNotice({ type: 'warning', message: 'Select a supplier for this request.' });
+    if (!newRequest.productId || !newRequest.quantity) {
+      setNotice({ type: 'warning', message: 'Product and quantity are required.' });
       return;
     }
 
@@ -152,34 +133,19 @@ export default function SupplyRequests() {
 
     try {
       const payload = {
+        productId: newRequest.productId,
         quantity: Number(newRequest.quantity),
-        supplierId: newRequest.supplierId,
         expectedDeliveryDate: newRequest.expectedDeliveryDate || undefined,
         notes: newRequest.notes
       };
 
-      if (newRequest.isNewProduct) {
-        payload.newProductName = newRequest.newProductName.trim();
-        payload.newProductCategory = newRequest.newProductCategory.trim();
-        payload.unitCost = Number(newRequest.unitCost || 0);
-        payload.gst = Number(newRequest.gst || 18);
-      } else {
-        payload.productId = newRequest.productId;
-      }
-
-      await supplyRequestsApi.create(
-        { ...payload, companyName: newRequest.companyName },
-        token
-      );
+      await supplyRequestsApi.create(payload, token);
       setNewRequest({
+        category: '',
         productId: '',
-        notes: '',
-        isNewProduct: false,
-        newProductName: '',
-        newProductCategory: '',
-        unitCost: '',
-        gst: 18,
-        companyName: ''
+        quantity: '',
+        expectedDeliveryDate: '',
+        notes: ''
       });
       await fetchData();
       setNotice({ type: 'success', message: 'Supply request created successfully.' });
@@ -262,15 +228,28 @@ export default function SupplyRequests() {
     if (status === 'Delivered' && canCreate) {
       return [
         {
-          label: 'Complete Request',
+          label: 'Verify Delivery',
           icon: <PackageCheck className="w-4 h-4" />,
           className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50',
           onClick: () => markReceived(request._id)
+        },
+        {
+          label: 'Track',
+          icon: <ClipboardList className="w-4 h-4" />,
+          className: 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200',
+          onClick: () => setSelectedRequest(request)
         }
       ];
     }
 
-    return null;
+    return [
+      {
+        label: 'Track',
+        icon: <ClipboardList className="w-4 h-4" />,
+        className: 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200',
+        onClick: () => setSelectedRequest(request)
+      }
+    ];
   };
 
   const columns = [
@@ -283,10 +262,12 @@ export default function SupplyRequests() {
         </span>
       )
     },
+    { header: 'Category', accessor: 'productCategory' },
     { header: 'Product', accessor: 'productName' },
     { header: 'Qty', accessor: 'quantity', render: (row) => <span className="font-semibold text-slate-800 dark:text-slate-200">{row.quantity}</span> },
-    { header: 'Staff', accessor: 'staffName' },
     { header: 'Company', accessor: 'companyName' },
+    { header: 'Supplier', accessor: 'supplierName', render: (row) => row.supplierName || '-' },
+    { header: 'Staff', accessor: 'staffName' },
     { header: 'Assigned Supplier', accessor: 'supplierName', render: (row) => row.supplierName || '-' },
     {
       header: 'Status',
@@ -361,50 +342,25 @@ export default function SupplyRequests() {
     }
   ];
 
-  const selectedProduct = useMemo(
-    () => products.find((item) => item._id === newRequest.productId) || null,
-    [products, newRequest.productId]
-  );
+  const CATEGORIES = useMemo(() => {
+    const cats = new Set(products.map(p => p.category).filter(Boolean));
+    return Array.from(cats).sort();
+  }, [products]);
 
-  const selectedCategory = useMemo(() => {
-    if (newRequest.isNewProduct) {
-      return String(newRequest.newProductCategory || '').trim();
-    }
-    return String(selectedProduct?.category || '').trim();
-  }, [newRequest.isNewProduct, newRequest.newProductCategory, selectedProduct]);
+  const filteredProducts = useMemo(() => {
+    if (!newRequest.category) return [];
+    return products.filter(p => p.category === newRequest.category);
+  }, [products, newRequest.category]);
 
-  const linkedSuppliers = useMemo(
-    () => suppliers.filter((supplier) => supplier.userId),
-    [suppliers]
-  );
-
-  const uniqueCompanies = useMemo(() => {
-    const companies = new Set();
-    linkedSuppliers.forEach(s => {
-      if (s.companyName) companies.add(s.companyName);
-    });
-    return Array.from(companies).sort();
-  }, [linkedSuppliers]);
-
-  const filteredCompanies = useMemo(() => {
-    if (!selectedCategory) return uniqueCompanies;
-    const normalizedCategory = selectedCategory.toLowerCase();
-    const companiesWithCategory = new Set();
-    linkedSuppliers.forEach(s => {
-      if (String(s.supplierCategory || '').trim().toLowerCase() === normalizedCategory) {
-        companiesWithCategory.add(s.companyName);
-      }
-    });
-
-    const baseList = companiesWithCategory.size > 0 ? Array.from(companiesWithCategory).sort() : uniqueCompanies;
-    
-    if (!newRequest.companyName) return baseList;
-    if (baseList.includes(newRequest.companyName)) return baseList;
-    return [newRequest.companyName, ...baseList];
-  }, [uniqueCompanies, linkedSuppliers, selectedCategory, newRequest.companyName]);
+  const autoFilledCompany = useMemo(() => {
+    if (!newRequest.productId) return '';
+    const p = products.find(p => p._id === newRequest.productId);
+    return p ? p.companyName : '';
+  }, [products, newRequest.productId]);
 
   return (
-    <div className="space-y-7">
+    <>
+      <div className="space-y-7">
       {notice ? (
         <NotificationAlert
           type={notice.type}
@@ -469,127 +425,76 @@ export default function SupplyRequests() {
           </div>
 
           <form onSubmit={createRequest} className="space-y-4">
-            <label className="inline-flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                checked={newRequest.isNewProduct}
-                onChange={(e) => setNewRequest((prev) => ({
-                  ...prev,
-                  isNewProduct: e.target.checked,
-                  productId: e.target.checked ? '' : prev.productId,
-                  companyName: ''
-                }))}
-              />
-              Request a new product not in inventory
-            </label>
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
+              <select
+                value={newRequest.category}
+                onChange={(e) => setNewRequest(prev => ({ ...prev, category: e.target.value, productId: '' }))}
+                className="air-input"
+                required
+              >
+                <option value="">Select Category</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
 
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {newRequest.isNewProduct ? (
-                <>
-                  <input
-                    type="text"
-                    placeholder="New Product Name"
-                    value={newRequest.newProductName}
-                    onChange={(e) => setNewRequest((prev) => ({ ...prev, newProductName: e.target.value }))}
-                    className="air-input"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Category"
-                    value={newRequest.newProductCategory}
-                    onChange={(e) => setNewRequest((prev) => ({ ...prev, newProductCategory: e.target.value }))}
-                    className="air-input"
-                    required
-                  />
-                </>
-              ) : (
-                <select
-                  value={newRequest.productId}
-                  onChange={(e) => setNewRequest((prev) => ({ ...prev, productId: e.target.value, companyName: '' }))}
-                  className="air-input"
-                  required
-                >
-                  <option value="">Select Product</option>
-                  {products.map((product) => (
-                    <option key={product._id} value={product._id}>
-                      {product.name} (Stock: {product.stock})
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                value={newRequest.productId}
+                onChange={(e) => setNewRequest(prev => ({ ...prev, productId: e.target.value }))}
+                className="air-input"
+                disabled={!newRequest.category}
+                required
+              >
+                <option value="">Select Product</option>
+                {filteredProducts.map(p => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+              </select>
 
-              {newRequest.isNewProduct ? (
-                <>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Unit Cost"
-                    value={newRequest.unitCost}
-                    onChange={(e) => setNewRequest((prev) => ({ ...prev, unitCost: e.target.value }))}
-                    className="air-input"
-                  />
-                  <select
-                    className="air-input"
-                    value={newRequest.gst}
-                    onChange={(e) => setNewRequest((prev) => ({ ...prev, gst: Number(e.target.value) }))}
-                  >
-                    {[0, 5, 12, 18, 28].map((item) => (
-                      <option key={item} value={item}>{item}% GST</option>
-                    ))}
-                  </select>
-                </>
-              ) : null}
+              <div className="relative group">
+                <input
+                  type="text"
+                  value={autoFilledCompany}
+                  readOnly
+                  placeholder="Company (Auto-filled)"
+                  className="air-input bg-slate-50/50 cursor-not-allowed border-slate-200/60"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                   <CheckCircle2 className={`w-4 h-4 transition-colors ${autoFilledCompany ? 'text-emerald-500' : 'text-slate-300'}`} />
+                </div>
+              </div>
 
               <input
                 type="number"
                 min="1"
                 placeholder="Quantity"
                 value={newRequest.quantity}
-                onChange={(e) => setNewRequest((prev) => ({ ...prev, quantity: e.target.value }))}
+                onChange={(e) => setNewRequest(prev => ({ ...prev, quantity: e.target.value }))}
                 className="air-input"
                 required
               />
-              <select
-                value={newRequest.companyName}
-                onChange={(e) => setNewRequest((prev) => ({ ...prev, companyName: e.target.value }))}
-                className="air-input"
-                required
-              >
-                <option value="">Select Company</option>
-                {filteredCompanies.map((company) => (
-                  <option key={company} value={company}>
-                    {company}
-                  </option>
-                ))}
-              </select>
 
               <input
                 type="date"
                 value={newRequest.expectedDeliveryDate}
-                onChange={(e) => setNewRequest((prev) => ({ ...prev, expectedDeliveryDate: e.target.value }))}
+                onChange={(e) => setNewRequest(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
                 min={todayDate}
                 className="air-input"
                 title="Expected Delivery Date"
               />
+
               <input
                 type="text"
                 placeholder="Notes (optional)"
                 value={newRequest.notes}
-                onChange={(e) => setNewRequest((prev) => ({ ...prev, notes: e.target.value }))}
-                className="air-input md:col-span-2 xl:col-span-2"
+                onChange={(e) => setNewRequest(prev => ({ ...prev, notes: e.target.value }))}
+                className="air-input xl:col-span-2"
               />
-              <button type="submit" className="air-btn-primary w-full md:w-auto justify-center px-5">
+
+              <button type="submit" className="air-btn-primary w-full justify-center px-5 gap-2">
                 <Plus className="w-4 h-4" /> Create Request
               </button>
             </div>
-
-            {selectedCategory && !filteredCompanies.includes(newRequest.companyName) && newRequest.companyName && (
-              <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-2">
-                This company might not match the product category. Showing all companies.
-              </p>
-            )}
           </form>
         </section>
       )}
@@ -643,5 +548,94 @@ export default function SupplyRequests() {
         />
       </section>
     </div>
+      {selectedRequest && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-emerald-600" />
+                Request Tracking: {selectedRequest.requestId}
+              </h3>
+              <button 
+                onClick={() => setSelectedRequest(null)}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <Plus className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-slate-500 uppercase tracking-wider font-bold mb-1">Product</p>
+                  <p className="text-slate-900 dark:text-slate-200 font-semibold">{selectedRequest.productName}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-slate-500 uppercase tracking-wider font-bold mb-1">Company</p>
+                  <p className="text-slate-900 dark:text-slate-200 font-semibold">{selectedRequest.companyName}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-700">
+                <div className="relative pl-10">
+                  <div className="absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-emerald-500 bg-white dark:bg-slate-800 flex items-center justify-center z-10">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">Requested</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">By {selectedRequest.staffName} on {new Date(selectedRequest.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {selectedRequest.approvedAt && (
+                   <div className="relative pl-10">
+                     <div className="absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-blue-500 bg-white dark:bg-slate-800 flex items-center justify-center z-10">
+                       <div className="w-2 h-2 rounded-full bg-blue-500" />
+                     </div>
+                     <div>
+                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">Approved</h4>
+                       <p className="text-xs text-slate-500 mt-0.5">By {selectedRequest.approvedByName || 'Admin'} on {new Date(selectedRequest.approvedAt).toLocaleString()}</p>
+                     </div>
+                   </div>
+                )}
+
+                {selectedRequest.deliveredAt && (
+                  <div className="relative pl-10">
+                    <div className="absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-indigo-500 bg-white dark:bg-slate-800 flex items-center justify-center z-10">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">Delivered</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">By {selectedRequest.supplierName} on {new Date(selectedRequest.deliveredAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedRequest.verifiedAt && (
+                  <div className="relative pl-10">
+                    <div className="absolute left-0 top-0 w-8 h-8 rounded-full border-2 border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center z-10">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Completed & Verified</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">By {selectedRequest.verifiedByName || selectedRequest.staffName} on {new Date(selectedRequest.verifiedAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 text-right">
+              <button 
+                onClick={() => setSelectedRequest(null)}
+                className="air-btn-primary px-6"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
