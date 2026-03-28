@@ -1,4 +1,12 @@
 const REAL_IMAGES = {
+  electronics: ['/images/categories/electronics.png'],
+  groceries: ['https://images.pexels.com/photos/11724874/pexels-photo-11724874.jpeg'],
+  furniture: ['https://cdn.pixabay.com/photo/2016/08/26/15/06/home-1622401_1280.jpg'],
+  stationery: ['https://cdn.pixabay.com/photo/2018/11/17/07/10/notebook-3820634_1280.jpg'],
+  clothing: ['/images/categories/clothing.png'],
+  accessories: ['/images/categories/accessories.png'],
+  hardware: ['/images/categories/hardware.png'],
+  appliances: ['/images/categories/appliances.png'],
   phone: [
     'https://images.pexels.com/photos/404280/pexels-photo-404280.jpeg?auto=compress&cs=tinysrgb&w=800',
     'https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -34,26 +42,6 @@ const REAL_IMAGES = {
     'https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg?auto=compress&cs=tinysrgb&w=800',
     'https://images.pexels.com/photos/159740/notebook-paper-white-line-159740.jpeg?auto=compress&cs=tinysrgb&w=800'
   ],
-  furniture: [
-    'https://images.pexels.com/photos/1957478/pexels-photo-1957478.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/37347/office-sitting-room-executive-sitting.jpg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/276583/pexels-photo-276583.jpeg?auto=compress&cs=tinysrgb&w=800'
-  ],
-  headphones: [
-    'https://images.pexels.com/photos/3394664/pexels-photo-3394664.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/577769/pexels-photo-577769.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/1649771/pexels-photo-1649771.jpeg?auto=compress&cs=tinysrgb&w=800'
-  ],
-  watch: [
-    'https://images.pexels.com/photos/277390/pexels-photo-277390.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/190819/pexels-photo-190819.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/1697214/pexels-photo-1697214.jpeg?auto=compress&cs=tinysrgb&w=800'
-  ],
-  camera: [
-    'https://images.pexels.com/photos/51383/photo-camera-subject-photographer-51383.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/212372/pexels-photo-212372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'https://images.pexels.com/photos/994517/pexels-photo-994517.jpeg?auto=compress&cs=tinysrgb&w=800'
-  ],
   office: [
     'https://images.pexels.com/photos/4483610/pexels-photo-4483610.jpeg?auto=compress&cs=tinysrgb&w=800',
     'https://images.pexels.com/photos/7974/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=800',
@@ -79,19 +67,23 @@ function pickVariant(images, seed) {
 }
 
 const rules = [
+  { test: /electronics/i, image: REAL_IMAGES.electronics },
+  { test: /grocery|groceries|food/i, image: REAL_IMAGES.groceries },
+  { test: /furniture|chair|table|desk/i, image: REAL_IMAGES.furniture },
+  { test: /stationery|paper|pen|notebook/i, image: REAL_IMAGES.stationery },
+  { test: /clothing|apparel|shirt|fashion/i, image: REAL_IMAGES.clothing },
+  { test: /accessories|jewelry|watch/i, image: REAL_IMAGES.accessories },
+  { test: /hardware|tool/i, image: REAL_IMAGES.hardware },
+  { test: /appliances|kitchen/i, image: REAL_IMAGES.appliances },
   { test: /mouse|trackpad/i, image: REAL_IMAGES.mouse },
   { test: /keyboard/i, image: REAL_IMAGES.keyboard },
   { test: /monitor|display/i, image: REAL_IMAGES.monitor },
   { test: /cable|hdmi|usb|type-?c|hub|adapter|multiport/i, image: REAL_IMAGES.cable },
-  { test: /paper|ream|notebook|sheet|stationery|organizer|file|folder/i, image: REAL_IMAGES.paper },
-  { test: /chair|desk|table|furniture/i, image: REAL_IMAGES.furniture },
   { test: /phone|mobile|iphone|android/i, image: REAL_IMAGES.phone },
   { test: /laptop|macbook|notebook|computer/i, image: REAL_IMAGES.laptop },
   { test: /headphone|earbud|earphone|audio|speaker/i, image: REAL_IMAGES.headphones },
-  { test: /watch|smart.?watch|clock/i, image: REAL_IMAGES.watch },
   { test: /camera|lens|dslr/i, image: REAL_IMAGES.camera },
-  { test: /warehouse|inventory|stock|storage|box|carton/i, image: REAL_IMAGES.warehouse },
-  { test: /stationery|furniture|printer|chair|table|pen|office|general/i, image: REAL_IMAGES.office }
+  { test: /warehouse|inventory|stock|storage|box|carton/i, image: REAL_IMAGES.warehouse }
 ];
 
 export function getSeededProductImage(name = '', category = '') {
