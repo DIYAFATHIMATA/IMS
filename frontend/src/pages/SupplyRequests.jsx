@@ -437,7 +437,7 @@ export default function SupplyRequests() {
           <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Overview</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Select a status card to filter request workflow stages</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {Object.entries(statusCardMeta).map(([value, config]) => (
             <button
               key={value}
