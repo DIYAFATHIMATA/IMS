@@ -309,10 +309,10 @@ export default function Users() {
 
                             <FormField label="Supplier Category" required>
                                 <FormSelect
-                                    value={formData.supplierCategory || 'General Goods'}
+                                    value={formData.supplierCategory || 'Electronics'}
                                     onChange={(e) => setFormData({ ...formData, supplierCategory: e.target.value })}
                                 >
-                                    {SUPPLIER_CATEGORIES.map((category) => (
+                                    {CATEGORIES.map((category) => (
                                         <option key={category} value={category}>{category}</option>
                                     ))}
                                 </FormSelect>
