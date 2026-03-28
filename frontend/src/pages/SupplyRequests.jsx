@@ -168,20 +168,18 @@ export default function SupplyRequests() {
       }
 
       await supplyRequestsApi.create(
-        payload,
+        { ...payload, companyName: newRequest.companyName },
         token
       );
       setNewRequest({
         productId: '',
-        supplierId: '',
-        quantity: '',
-        expectedDeliveryDate: '',
         notes: '',
         isNewProduct: false,
         newProductName: '',
         newProductCategory: '',
         unitCost: '',
-        gst: 18
+        gst: 18,
+        companyName: ''
       });
       await fetchData();
       setNotice({ type: 'success', message: 'Supply request created successfully.' });
@@ -288,7 +286,8 @@ export default function SupplyRequests() {
     { header: 'Product', accessor: 'productName' },
     { header: 'Qty', accessor: 'quantity', render: (row) => <span className="font-semibold text-slate-800 dark:text-slate-200">{row.quantity}</span> },
     { header: 'Staff', accessor: 'staffName' },
-    { header: 'Supplier', accessor: 'supplierName', render: (row) => row.supplierName || '-' },
+    { header: 'Company', accessor: 'companyName' },
+    { header: 'Assigned Supplier', accessor: 'supplierName', render: (row) => row.supplierName || '-' },
     {
       header: 'Status',
       accessor: 'status',
@@ -379,24 +378,30 @@ export default function SupplyRequests() {
     [suppliers]
   );
 
-  const matchedSuppliers = useMemo(() => {
-    if (!selectedCategory) return linkedSuppliers;
+  const uniqueCompanies = useMemo(() => {
+    const companies = new Set();
+    linkedSuppliers.forEach(s => {
+      if (s.companyName) companies.add(s.companyName);
+    });
+    return Array.from(companies).sort();
+  }, [linkedSuppliers]);
+
+  const filteredCompanies = useMemo(() => {
+    if (!selectedCategory) return uniqueCompanies;
     const normalizedCategory = selectedCategory.toLowerCase();
-    return linkedSuppliers.filter(
-      (supplier) => String(supplier.supplierCategory || '').trim().toLowerCase() === normalizedCategory
-    );
-  }, [linkedSuppliers, selectedCategory]);
+    const companiesWithCategory = new Set();
+    linkedSuppliers.forEach(s => {
+      if (String(s.supplierCategory || '').trim().toLowerCase() === normalizedCategory) {
+        companiesWithCategory.add(s.companyName);
+      }
+    });
 
-  const filteredSuppliers = useMemo(() => {
-    // Fallback to all linked suppliers so the dropdown never becomes empty.
-    const baseList = matchedSuppliers.length > 0 ? matchedSuppliers : linkedSuppliers;
-
-    // Keep currently selected supplier visible even if filters changed.
-    if (!newRequest.supplierId) return baseList;
-    if (baseList.some((supplier) => supplier._id === newRequest.supplierId)) return baseList;
-    const selected = linkedSuppliers.find((supplier) => supplier._id === newRequest.supplierId);
-    return selected ? [selected, ...baseList] : baseList;
-  }, [linkedSuppliers, matchedSuppliers, newRequest.supplierId]);
+    const baseList = companiesWithCategory.size > 0 ? Array.from(companiesWithCategory).sort() : uniqueCompanies;
+    
+    if (!newRequest.companyName) return baseList;
+    if (baseList.includes(newRequest.companyName)) return baseList;
+    return [newRequest.companyName, ...baseList];
+  }, [uniqueCompanies, linkedSuppliers, selectedCategory, newRequest.companyName]);
 
   return (
     <div className="space-y-7">
@@ -472,7 +477,7 @@ export default function SupplyRequests() {
                   ...prev,
                   isNewProduct: e.target.checked,
                   productId: e.target.checked ? '' : prev.productId,
-                  supplierId: ''
+                  companyName: ''
                 }))}
               />
               Request a new product not in inventory
@@ -501,7 +506,7 @@ export default function SupplyRequests() {
               ) : (
                 <select
                   value={newRequest.productId}
-                  onChange={(e) => setNewRequest((prev) => ({ ...prev, productId: e.target.value, supplierId: '' }))}
+                  onChange={(e) => setNewRequest((prev) => ({ ...prev, productId: e.target.value, companyName: '' }))}
                   className="air-input"
                   required
                 >
@@ -547,15 +552,15 @@ export default function SupplyRequests() {
                 required
               />
               <select
-                value={newRequest.supplierId}
-                onChange={(e) => setNewRequest((prev) => ({ ...prev, supplierId: e.target.value }))}
+                value={newRequest.companyName}
+                onChange={(e) => setNewRequest((prev) => ({ ...prev, companyName: e.target.value }))}
                 className="air-input"
                 required
               >
-                <option value="">Select Supplier</option>
-                {filteredSuppliers.map((supplier) => (
-                  <option key={supplier._id} value={supplier._id}>
-                    {supplier.companyName} ({supplier.supplierCategory})
+                <option value="">Select Company</option>
+                {filteredCompanies.map((company) => (
+                  <option key={company} value={company}>
+                    {company}
                   </option>
                 ))}
               </select>
@@ -580,11 +585,11 @@ export default function SupplyRequests() {
               </button>
             </div>
 
-            {selectedCategory && matchedSuppliers.length === 0 ? (
+            {selectedCategory && !filteredCompanies.includes(newRequest.companyName) && newRequest.companyName && (
               <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-lg px-3 py-2">
-                No exact category match found. Showing all linked suppliers.
+                This company might not match the product category. Showing all companies.
               </p>
-            ) : null}
+            )}
           </form>
         </section>
       )}

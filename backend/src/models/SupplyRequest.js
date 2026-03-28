@@ -38,6 +38,7 @@ const supplyRequestSchema = new mongoose.Schema(
     staffName: { type: String, required: true, trim: true },
     supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     supplierName: { type: String, trim: true, default: '' },
+    companyName: { type: String, trim: true, default: '' },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedByName: { type: String, trim: true, default: '' },
     approvedAt: { type: Date },

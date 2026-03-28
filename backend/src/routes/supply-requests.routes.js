@@ -53,12 +53,7 @@ router.get('/', requireRoles(ROLE_ADMIN, ROLE_STAFF, ROLE_SUPPLIER), async (req,
     if (role === ROLE_STAFF) {
       query = { staffId: actorId };
     } else if (role === ROLE_SUPPLIER) {
-      query = {
-        $or: [
-          { status: 'Approved', supplierId: null },
-          { supplierId: actorId }
-        ]
-      };
+      query = { supplierId: actorId };
     }
 
     const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
@@ -122,7 +117,7 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
       notes,
       expectedDeliveryDate,
       deliveryAddress,
-      supplierId,
+      companyName,
       newProductName,
       newProductCategory,
       unitCost,
@@ -172,23 +167,17 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
     }
 
     let selectedSupplier = null;
-    if (supplierId) {
-      selectedSupplier = await Supplier.findById(supplierId).lean();
-      if (!selectedSupplier) {
-        return res.status(404).json({ success: false, message: 'Supplier not found' });
+    if (companyName) {
+      const companySuppliers = await Supplier.find({ companyName: String(companyName).trim() }).lean();
+      if (companySuppliers.length === 0) {
+        return res.status(404).json({ success: false, message: `No suppliers found for company: ${companyName}` });
       }
+
+      // Automatically assign the first supplier from the company
+      selectedSupplier = companySuppliers[0];
 
       if (!selectedSupplier.userId) {
-        return res.status(400).json({ success: false, message: 'Selected supplier is not linked to a supplier account' });
-      }
-
-      const productCategory = String(resolvedProductCategory || '').trim().toLowerCase();
-      const supplierCategory = String(selectedSupplier.supplierCategory || '').trim().toLowerCase();
-      if (productCategory !== supplierCategory) {
-        return res.status(400).json({
-          success: false,
-          message: `Selected supplier category (${selectedSupplier.supplierCategory}) does not match product category (${resolvedProductCategory})`
-        });
+        return res.status(400).json({ success: false, message: 'Assigned supplier is not linked to a user account' });
       }
     }
 
@@ -218,8 +207,8 @@ router.post('/', requireRoles(ROLE_STAFF), async (req, res) => {
           notes: 'Request created'
         }
       ],
-      staffId: req.auth.sub,
       staffName: req.auth.name || req.auth.email || 'Staff',
+      companyName: String(companyName || '').trim(),
       supplierId: selectedSupplier?.userId || null,
       supplierName: selectedSupplier?.companyName || ''
     });
