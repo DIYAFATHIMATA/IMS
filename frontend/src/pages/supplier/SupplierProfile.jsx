@@ -245,7 +245,7 @@ export default function SupplierProfile() {
                 value={profile.supplierCategory}
                 onChange={(e) => setProfile((prev) => ({ ...prev, supplierCategory: e.target.value }))}
               >
-                {SUPPLIER_CATEGORIES.map((item) => (
+                {CATEGORIES.map((item) => (
                   <option key={item} value={item}>{item}</option>
                 ))}
               </select>
